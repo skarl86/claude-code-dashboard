@@ -82,41 +82,13 @@ export interface DailyActivity {
   date: string; // YYYY-MM-DD
   messageCount: number;
   sessionCount: number;
-  toolCallCount: number;
+  toolCallCount?: number;
 }
 
-export interface DailyModelTokens {
-  date: string; // YYYY-MM-DD
-  tokensByModel: Record<string, number>;
-}
 
-export interface ModelUsage {
-  inputTokens: number;
-  outputTokens: number;
-  cacheReadInputTokens: number;
-  cacheCreationInputTokens: number;
-  webSearchRequests: number;
-  costUSD: number;
-  contextWindow: number;
-  maxOutputTokens?: number;
-}
-
-export interface LongestSession {
-  sessionId: string;
-  duration: number;
-  messageCount: number;
-  timestamp: string;
-}
-
-export interface StatsCache {
-  version: number;
-  lastComputedDate: string;
-  dailyActivity: DailyActivity[];
-  dailyModelTokens: DailyModelTokens[];
-  modelUsage: Record<string, ModelUsage>;
+export interface OverviewStats {
   totalSessions: number;
   totalMessages: number;
-  longestSession: LongestSession;
   firstSessionDate: string;
-  hourCounts: Record<string, number>;
+  dailyActivity: DailyActivity[];
 }

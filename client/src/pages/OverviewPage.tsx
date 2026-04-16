@@ -18,7 +18,7 @@ interface DailyActivity {
   date: string;
   messageCount: number;
   sessionCount: number;
-  toolCallCount: number;
+  toolCallCount?: number;
 }
 
 interface RecentSession {
@@ -29,13 +29,15 @@ interface RecentSession {
   created: string;
 }
 
+interface OverviewStats {
+  totalSessions: number;
+  totalMessages: number;
+  firstSessionDate: string;
+  dailyActivity: DailyActivity[];
+}
+
 interface OverviewData {
-  statsCache: {
-    totalSessions: number;
-    totalMessages: number;
-    firstSessionDate: string;
-    dailyActivity: DailyActivity[];
-  } | null;
+  stats: OverviewStats | null;
   totalProjects: number;
   recentSessions: RecentSession[];
 }
@@ -57,9 +59,9 @@ export default function OverviewPage() {
   if (error) return <p className="text-red-400">Error: {error}</p>;
   if (!data) return null;
 
-  const { statsCache, totalProjects, recentSessions } = data;
+  const { stats, totalProjects, recentSessions } = data;
 
-  const chartData = (statsCache?.dailyActivity ?? []).slice(-30);
+  const chartData = (stats?.dailyActivity ?? []).slice(-30);
 
   const formatDate = (iso: string) => {
     const d = new Date(iso);
@@ -77,10 +79,10 @@ export default function OverviewPage() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-4 gap-4">
-        <StatCard label="Total Sessions" value={statsCache ? statsCache.totalSessions.toLocaleString() : '-'} />
-        <StatCard label="Total Messages" value={statsCache ? statsCache.totalMessages.toLocaleString() : '-'} />
+        <StatCard label="Total Sessions" value={stats ? stats.totalSessions.toLocaleString() : '-'} />
+        <StatCard label="Total Messages" value={stats ? stats.totalMessages.toLocaleString() : '-'} />
         <StatCard label="Active Projects" value={totalProjects} />
-        <StatCard label="First Session" value={statsCache?.firstSessionDate ? formatDate(statsCache.firstSessionDate) : '-'} />
+        <StatCard label="First Session" value={stats?.firstSessionDate ? formatDate(stats.firstSessionDate) : '-'} />
       </div>
 
       {/* Daily Activity Chart */}

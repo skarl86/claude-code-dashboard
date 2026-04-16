@@ -10,6 +10,8 @@ import type {
   SessionMetadata,
   SessionDetail,
   RawSessionIndexEntry,
+  OverviewStats,
+  DailyActivity,
 } from "../types.js";
 import { readSessionsIndex } from "../parsers/index-reader.js";
 import {
@@ -219,6 +221,60 @@ export async function getSessionDetail(
   }
 
   return null;
+}
+
+/**
+ * 캐시된 세션 목록을 기반으로 Overview 통계를 계산한다.
+ */
+export async function computeOverviewStats(): Promise<OverviewStats> {
+  const cacheKey = "allSessions";
+  let allSessions = getCached<SessionMetadata[]>(cacheKey);
+  if (!allSessions) {
+    allSessions = await collectAllSessions();
+    setCache(cacheKey, allSessions);
+  }
+
+  const totalSessions = allSessions.length;
+  const totalMessages = allSessions.reduce((sum, s) => sum + s.messageCount, 0);
+
+  let firstSessionDate = "";
+  if (allSessions.length > 0) {
+    firstSessionDate = allSessions.reduce(
+      (earliest, s) => (s.created && s.created < earliest ? s.created : earliest),
+      allSessions[0].created || "",
+    );
+  }
+
+  // dailyActivity: created 날짜(YYYY-MM-DD) 기준 그룹화
+  const dailyMap = new Map<string, { messageCount: number; sessionCount: number }>();
+  for (const session of allSessions) {
+    const date = session.created?.slice(0, 10);
+    if (!date) continue;
+    const entry = dailyMap.get(date) ?? { messageCount: 0, sessionCount: 0 };
+    entry.sessionCount += 1;
+    entry.messageCount += session.messageCount;
+    dailyMap.set(date, entry);
+  }
+
+  // 날짜순 정렬 + 빈 날짜 채우기
+  const dates = Array.from(dailyMap.keys()).sort();
+  const dailyActivity: DailyActivity[] = [];
+  if (dates.length > 0) {
+    const start = new Date(dates[0]);
+    const end = new Date(dates[dates.length - 1]);
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const key = d.toISOString().slice(0, 10);
+      const entry = dailyMap.get(key);
+      dailyActivity.push({
+        date: key,
+        messageCount: entry?.messageCount ?? 0,
+        sessionCount: entry?.sessionCount ?? 0,
+        toolCallCount: 0,
+      });
+    }
+  }
+
+  return { totalSessions, totalMessages, firstSessionDate, dailyActivity };
 }
 
 // ── Internal ────────────────────────────────────────────────────────

@@ -1,20 +1,19 @@
 import { Router } from "express";
 
-import { readStatsCache } from "../parsers/index-reader.js";
-import { getAllProjects, getAllSessions } from "../services/session-service.js";
+import { getAllProjects, getAllSessions, computeOverviewStats } from "../services/session-service.js";
 
 const router = Router();
 
 router.get("/api/overview", async (_req, res) => {
   try {
-    const [statsCache, projects, sessionsResult] = await Promise.all([
-      readStatsCache(),
+    const [stats, projects, sessionsResult] = await Promise.all([
+      computeOverviewStats(),
       getAllProjects(),
       getAllSessions({ limit: 10, sort: "modified", order: "desc" }),
     ]);
 
     res.json({
-      statsCache,
+      stats,
       totalProjects: projects.length,
       recentSessions: sessionsResult.sessions,
       totalSessions: sessionsResult.total,

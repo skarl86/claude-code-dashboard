@@ -56,7 +56,7 @@ cc-session-dashboard/
 │       ├── types.ts         # TypeScript 타입 정의
 │       ├── parsers/
 │       │   ├── jsonl-parser.ts   # JSONL 스트리밍 파서
-│       │   └── index-reader.ts   # sessions-index/stats-cache 리더
+│       │   └── index-reader.ts   # sessions-index 리더
 │       ├── routes/
 │       │   ├── overview.ts  # GET /api/overview
 │       │   └── sessions.ts  # GET /api/sessions, /api/projects
