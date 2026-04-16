@@ -245,25 +245,27 @@ export async function computeOverviewStats(): Promise<OverviewStats> {
     );
   }
 
-  // dailyActivity: created 날짜(YYYY-MM-DD) 기준 그룹화
+  // dailyActivity: created 날짜(YYYY-MM-DD, 로컬 타임존) 기준 그룹화
   const dailyMap = new Map<string, { messageCount: number; sessionCount: number }>();
   for (const session of allSessions) {
-    const date = session.created?.slice(0, 10);
-    if (!date) continue;
+    if (!session.created) continue;
+    const date = new Date(session.created).toLocaleDateString("sv-SE");
     const entry = dailyMap.get(date) ?? { messageCount: 0, sessionCount: 0 };
     entry.sessionCount += 1;
     entry.messageCount += session.messageCount;
     dailyMap.set(date, entry);
   }
 
-  // 날짜순 정렬 + 빈 날짜 채우기
+  // 날짜순 정렬 + 빈 날짜 채우기 (로컬 타임존 기준)
   const dates = Array.from(dailyMap.keys()).sort();
   const dailyActivity: DailyActivity[] = [];
   if (dates.length > 0) {
-    const start = new Date(dates[0]);
-    const end = new Date(dates[dates.length - 1]);
+    const [ys, ms, ds] = dates[0].split("-").map(Number);
+    const [ye, me, de] = dates[dates.length - 1].split("-").map(Number);
+    const start = new Date(ys, ms - 1, ds);
+    const end = new Date(ye, me - 1, de);
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      const key = d.toISOString().slice(0, 10);
+      const key = d.toLocaleDateString("sv-SE");
       const entry = dailyMap.get(key);
       dailyActivity.push({
         date: key,
