@@ -1,3 +1,7 @@
+// Client-side session types.
+// NOTE: Keep in sync with server/src/types.ts — these shapes mirror the
+// server response so the client can consume it in a type-safe way.
+
 export interface SessionMetadata {
   sessionId: string;
   projectDir: string;
@@ -56,54 +60,6 @@ export interface TokenUsagePerMessage {
 export interface ToolCallEntry {
   name: string;
   count: number;
-}
-
-export interface DailyStats {
-  date: string;
-  messageCount: number;
-  sessionCount: number;
-  toolCallCount: number;
-  modelTokens?: Record<string, { input: number; output: number }>;
-}
-
-export interface ProjectInfo {
-  dirName: string;
-  projectPath: string;
-  projectName: string;
-  sessionCount: number;
-}
-
-// ── Raw sessions-index.json 항목 ────────────────────────────────────
-/** sessions-index.json 파일의 entries 배열 항목 (파일 원본 구조) */
-export interface RawSessionIndexEntry {
-  sessionId: string;
-  fullPath: string;
-  fileMtime: number;
-  firstPrompt: string;
-  summary: string;
-  messageCount: number;
-  created: string; // ISO 8601
-  modified: string; // ISO 8601
-  gitBranch: string;
-  projectPath: string;
-  isSidechain: boolean;
-}
-
-// ── Stats Cache ─────────────────────────────────────────────────────
-
-export interface DailyActivity {
-  date: string; // YYYY-MM-DD
-  messageCount: number;
-  sessionCount: number;
-  toolCallCount?: number;
-}
-
-
-export interface OverviewStats {
-  totalSessions: number;
-  totalMessages: number;
-  firstSessionDate: string;
-  dailyActivity: DailyActivity[];
 }
 
 // ── Content Blocks ──

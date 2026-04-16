@@ -1,3 +1,5 @@
+import type { SessionDetail } from './types/session';
+
 const BASE = '/api';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -30,8 +32,12 @@ export function fetchSessions(params?: {
   return request(`/sessions${query ? `?${query}` : ''}`);
 }
 
-export function fetchSessionDetail(id: string): Promise<any> {
-  return request(`/sessions/${encodeURIComponent(id)}`);
+export async function fetchSessionDetail(
+  id: string,
+  opts?: { full?: boolean }
+): Promise<SessionDetail> {
+  const qs = opts?.full ? "?full=1" : "";
+  return request<SessionDetail>(`/sessions/${encodeURIComponent(id)}${qs}`);
 }
 
 export function fetchProjects(): Promise<any> {
