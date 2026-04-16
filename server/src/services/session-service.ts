@@ -17,6 +17,7 @@ import { readSessionsIndex } from "../parsers/index-reader.js";
 import {
   parseSessionMetadata,
   parseSessionFile,
+  extractModelsFromJsonl,
 } from "../parsers/jsonl-parser.js";
 
 // ── Cache ───────────────────────────────────────────────────────────
@@ -214,13 +215,179 @@ export async function getSessionDetail(
     const jsonlPath = path.join(dirPath, `${sessionId}.jsonl`);
     try {
       await fs.access(jsonlPath);
-      return await parseSessionFile(jsonlPath, dirName);
+      const detail = await parseSessionFile(jsonlPath, dirName);
+      try {
+        await enrichSessionDetailWithSubAgents(detail, dirPath);
+      } catch (err) {
+        console.warn(
+          `[session-service] sub-agent 링크 실패: ${sessionId}`,
+          err,
+        );
+      }
+      return detail;
     } catch {
       // 이 디렉토리에는 없음, 다음 시도
     }
   }
 
   return null;
+}
+
+// ── Sub-agent / sidechain linking ───────────────────────────────────
+
+/** ISO string 이나 ms number 를 ms 로 변환. */
+function toMs(value: string | number | undefined | null): number | undefined {
+  if (value == null) return undefined;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const ms = Date.parse(value);
+    return Number.isFinite(ms) ? ms : undefined;
+  }
+  return undefined;
+}
+
+/** index entry 의 실제 JSONL 파일 경로를 돌려준다. */
+function indexEntryFilePath(
+  entry: RawSessionIndexEntry,
+  projectDirPath: string,
+): string {
+  if (typeof entry.fullPath === "string" && entry.fullPath) {
+    return entry.fullPath;
+  }
+  return path.join(projectDirPath, `${entry.sessionId}.jsonl`);
+}
+
+/**
+ * sidechain 엔트리의 parentSessionId 후보를 non-sidechain 엔트리들 중에서 찾는다.
+ *
+ * - sidechain 의 created 시각이 parent 의 [created, modified] 범위(±60s 버퍼) 안에
+ *   들어가는 엔트리들 중 created 가 가장 가까운 것을 고른다.
+ * - parent 의 modified 가 없으면 created 기준 ±120s 근접만 본다.
+ * - 후보가 없거나 sidechain 의 created 를 ms 로 변환할 수 없으면 undefined 를 반환한다.
+ *   (index 가 sidechain 항목만 있고 non-sidechain 이 없는 프로젝트는 자연스럽게 skip.)
+ */
+function resolveParentSessionId(
+  sidechainEntry: RawSessionIndexEntry,
+  nonSidechainEntries: RawSessionIndexEntry[],
+  selfCreatedHint?: string,
+): string | undefined {
+  if (nonSidechainEntries.length === 0) return undefined;
+
+  const selfCreatedMs =
+    toMs(selfCreatedHint) ?? toMs(sidechainEntry.created);
+  if (selfCreatedMs === undefined) return undefined;
+
+  let bestParent: RawSessionIndexEntry | undefined;
+  let bestDelta = Number.POSITIVE_INFINITY;
+
+  for (const parent of nonSidechainEntries) {
+    const startMs = toMs(parent.created);
+    const endMs = toMs(parent.modified);
+    if (startMs === undefined) continue;
+
+    // 구간이 겹치는 후보만 고려 (modified 가 없으면 start 만 기준)
+    const withinRange =
+      endMs !== undefined
+        ? selfCreatedMs >= startMs - 60_000 &&
+          selfCreatedMs <= endMs + 60_000
+        : Math.abs(selfCreatedMs - startMs) <= 120_000;
+    if (!withinRange) continue;
+
+    const delta = Math.abs(selfCreatedMs - startMs);
+    if (delta < bestDelta) {
+      bestDelta = delta;
+      bestParent = parent;
+    }
+  }
+
+  return bestParent?.sessionId;
+}
+
+/**
+ * detail.messages 의 Task tool_use 블록을 같은 프로젝트의 sidechain 세션과 매칭하고,
+ * 현재 세션이 sidechain 인 경우 parentSessionId 를 채운다.
+ */
+async function enrichSessionDetailWithSubAgents(
+  detail: SessionDetail,
+  projectDirPath: string,
+): Promise<void> {
+  const entries = await readSessionsIndex(projectDirPath);
+  if (entries.length === 0) return;
+
+  const sidechainEntries = entries.filter((e) => e.isSidechain === true);
+  const mainEntries = entries.filter((e) => e.isSidechain !== true);
+
+  // 현재 세션이 sidechain 인지 index 로 교차 확인 + parentSessionId 계산
+  const selfEntry = entries.find((e) => e.sessionId === detail.sessionId);
+  if (selfEntry?.isSidechain) {
+    detail.isSidechain = true;
+
+    const parentId = resolveParentSessionId(
+      selfEntry,
+      mainEntries,
+      detail.created,
+    );
+    if (parentId) {
+      detail.parentSessionId = parentId;
+    }
+  }
+
+  // Task tool_use 블록 → sidechain 자식 매칭
+  if (sidechainEntries.length === 0) return;
+
+  // 후보 sidechain 엔트리: created ms 를 미리 계산
+  const sidechainCandidates = sidechainEntries
+    .map((entry) => ({ entry, createdMs: toMs(entry.created) }))
+    .filter(
+      (c): c is { entry: RawSessionIndexEntry; createdMs: number } =>
+        c.createdMs !== undefined,
+    );
+
+  const usedSessionIds = new Set<string>();
+
+  for (const msg of detail.messages) {
+    const blocks = msg.blocks;
+    if (!blocks || blocks.length === 0) continue;
+    const msgMs = toMs(msg.timestamp);
+    if (msgMs === undefined) continue;
+
+    for (const block of blocks) {
+      if (
+        block.kind !== "tool_use" ||
+        (block.name !== "Task" && block.name !== "Agent")
+      )
+        continue;
+
+      let bestEntry: RawSessionIndexEntry | undefined;
+      let bestDelta = Number.POSITIVE_INFINITY;
+
+      for (const { entry, createdMs } of sidechainCandidates) {
+        if (usedSessionIds.has(entry.sessionId)) continue;
+        const delta = Math.abs(msgMs - createdMs);
+        if (delta >= 120_000) continue;
+        if (delta < bestDelta) {
+          bestDelta = delta;
+          bestEntry = entry;
+        }
+      }
+
+      if (!bestEntry) continue;
+      usedSessionIds.add(bestEntry.sessionId);
+
+      const filePath = indexEntryFilePath(bestEntry, projectDirPath);
+      let models: string[] = [];
+      try {
+        models = extractModelsFromJsonl(filePath);
+      } catch {
+        models = [];
+      }
+
+      block.subAgent = {
+        sessionId: bestEntry.sessionId,
+        models,
+      };
+    }
+  }
 }
 
 /**

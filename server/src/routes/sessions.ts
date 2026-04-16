@@ -6,6 +6,7 @@ import {
   getSessionDetail,
   getAllProjects,
 } from "../services/session-service.js";
+import { applySafetyCaps } from "../parsers/caps.js";
 
 const router = Router();
 
@@ -35,6 +36,12 @@ router.get("/api/sessions/:sessionId", async (req: Request, res: Response) => {
   if (!detail) {
     res.status(404).json({ error: "Session not found" });
     return;
+  }
+
+  const fullParam = req.query.full;
+  const isFull = fullParam === "1" || fullParam === "true";
+  if (!isFull) {
+    applySafetyCaps(detail.messages);
   }
 
   res.json(detail);
