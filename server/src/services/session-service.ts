@@ -352,7 +352,11 @@ async function enrichSessionDetailWithSubAgents(
     if (msgMs === undefined) continue;
 
     for (const block of blocks) {
-      if (block.kind !== "tool_use" || block.name !== "Task") continue;
+      if (
+        block.kind !== "tool_use" ||
+        (block.name !== "Task" && block.name !== "Agent")
+      )
+        continue;
 
       let bestEntry: RawSessionIndexEntry | undefined;
       let bestDelta = Number.POSITIVE_INFINITY;

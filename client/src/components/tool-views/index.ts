@@ -31,6 +31,7 @@ export function getToolView(name: string): ToolView {
     case "Glob":
       return GlobView;
     case "Task":
+    case "Agent":
       return TaskView;
     default:
       return GenericJsonView;
