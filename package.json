@@ -1,0 +1,15 @@
+{
+  "name": "cc-session-dashboard",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "cd server && npx tsx watch src/index.ts",
+    "dev:client": "cd client && npx vite",
+    "build": "cd client && npm run build",
+    "start": "cd server && npx tsx src/index.ts"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
