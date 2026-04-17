@@ -6,7 +6,11 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     proxy: {
-      '/api': 'http://127.0.0.1:3456',
+      '/api': 'http://127.0.0.1:3939',
     },
+  },
+  build: {
+    outDir: '../dist/public',
+    emptyOutDir: true,
   },
 });

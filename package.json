@@ -1,15 +1,60 @@
 {
-  "name": "cc-session-dashboard",
-  "private": true,
+  "name": "@skarl86/cc-session-dashboard",
+  "version": "0.1.0",
+  "description": "Local dashboard CLI for monitoring Claude Code sessions from ~/.claude/projects.",
   "type": "module",
+  "bin": {
+    "cc-dashboard": "./bin/cc-dashboard.js"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/skarl86/cc-session-dashboard.git"
+  },
+  "license": "MIT",
+  "keywords": [
+    "claude",
+    "claude-code",
+    "dashboard",
+    "cli",
+    "session-monitoring"
+  ],
   "scripts": {
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "cd server && npx tsx watch src/index.ts",
     "dev:client": "cd client && npx vite",
-    "build": "cd client && npm run build",
-    "start": "cd server && npx tsx src/index.ts"
+    "build": "npm run build:client && npm run build:server",
+    "build:client": "cd client && npm run build",
+    "build:server": "tsup",
+    "start": "node dist/server/index.js",
+    "prepublishOnly": "npm run build",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "cors": "^2.8.5",
+    "cac": "^6.7.14",
+    "open": "^10.1.0",
+    "get-port": "^7.1.0"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "typescript": "^5.8.3",
+    "tsx": "^4.19.4",
+    "tsup": "^8.3.0",
+    "concurrently": "^9.1.2",
+    "@types/express": "^5.0.2",
+    "@types/cors": "^2.8.17",
+    "@types/node": "^22.15.3"
   }
 }

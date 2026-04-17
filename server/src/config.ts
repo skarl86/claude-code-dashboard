@@ -2,14 +2,25 @@ import path from "node:path";
 import os from "node:os";
 
 // ── Server ───────────────────────────────────────────────────────────
-export const PORT = parseInt(process.env.PORT || "3456", 10);
+export const PORT = parseInt(process.env.PORT || "3939", 10);
 export const HOST = "127.0.0.1";
 
 // ── Claude Config Dir ────────────────────────────────────────────────
 
-/** CLAUDE_CONFIG_DIR 환경변수 값을 반환하고, 없으면 ~/.claude 를 반환한다. */
+let claudeConfigDirOverride: string | undefined;
+
+/** CLI가 런타임에 --projects-dir 값을 주입할 때 사용한다. */
+export function setClaudeConfigDirOverride(dir: string | undefined): void {
+  claudeConfigDirOverride = dir ? path.resolve(dir) : undefined;
+}
+
+/** override > CLAUDE_CONFIG_DIR env > ~/.claude 순으로 해석한다. */
 export function getClaudeConfigDir(): string {
-  return process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), ".claude");
+  return (
+    claudeConfigDirOverride ||
+    process.env.CLAUDE_CONFIG_DIR ||
+    path.join(os.homedir(), ".claude")
+  );
 }
 
 /** projects/ 디렉토리의 절대 경로를 반환한다. */

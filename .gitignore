@@ -16,6 +16,7 @@ dist/
 .claude/
 skills-lock.json
 artifacts/
+.harness/
 
 # editor
 .vscode/
